@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/json"
 	"log"
 	"os"
 
@@ -36,13 +37,40 @@ func main() {
 	go readMessages(ws, read)
 	go sendMessages(ws, send)
 
-	//bitmexws.Subscribe(send, bitmexws.Topics.Connected)
 	apiKey := os.Getenv("BITMEX_KEY")
 	apiSecret := os.Getenv("BITMEX_SECRET")
 	bitmexws.Authenticate(send, apiKey, apiSecret)
+	bitmexws.Subscribe(send, bitmexws.Topics.Connected)
 
 	for {
 		msg := <-read
-		log.Println(string(msg))
+		var suc bitmexws.SubSuccess
+		var serr bitmexws.SubError
+		var data bitmexws.SubData
+
+		if err := json.Unmarshal(msg, &suc); err != nil {
+			log.Fatalln(err)
+		}
+		if !suc.Success {
+			if err := json.Unmarshal(msg, &serr); err != nil {
+				log.Fatalln(err)
+			}
+			if serr.Error == "" {
+				if err := json.Unmarshal(msg, &data); err != nil {
+					log.Fatalln(err)
+				}
+				if data.Table == "" {
+
+				} else {
+					log.Printf("Data subscription. Table: %s", data.Table)
+				}
+			} else {
+
+				log.Printf("Error response: %s", serr.Error)
+			}
+		} else {
+			log.Println(string(msg))
+			log.Printf("Subscription success: %s", suc.Subscribe)
+		}
 	}
 }
